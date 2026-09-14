@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice Creator</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>Invoice Creator</h1>
+  <span class="hint">Fill it in, hit Create Invoice, get a PDF.</span>
+</header>
+
+<main>
+  <form id="invoice-form" autocomplete="off">
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Your details</h2>
+        <label class="remember"><input type="checkbox" id="remember" checked> Remember these</label>
+      </div>
+      <div class="field">
+        <label for="fromAddress">Your name / address / contact</label>
+        <textarea id="fromAddress" name="fromAddress" rows="4" placeholder="12 High Street&#10;London, EC1A 1BB&#10;hello@acme.co.uk"></textarea>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Invoice for</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label for="toName">Client name</label>
+          <input id="toName" name="toName" placeholder="Client Ltd">
+        </div>
+        <div class="field">
+          <label for="toAddress">Client address</label>
+          <textarea id="toAddress" name="toAddress" rows="4" placeholder="4 Market Square&#10;Manchester, M1 2AB"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Invoice details</h2>
+      <div class="grid-3">
+        <div class="field">
+          <label for="number">Invoice number</label>
+          <input id="number" name="number" placeholder="INV-001">
+        </div>
+        <div class="field">
+          <label for="date">Date</label>
+          <input id="date" name="date" type="date">
+        </div>
+        <div class="field">
+          <label for="dueDate">Due date</label>
+          <input id="dueDate" name="dueDate" type="date">
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Services</h2>
+      <div class="items-head">
+        <span>Description</span>
+        <span class="right">Cost (£)</span>
+        <span></span>
+      </div>
+      <div id="items"></div>
+      <button type="button" class="ghost" id="add-item">+ Add service</button>
+    </section>
+
+    <section class="card">
+      <h2>Totals</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label for="discount">Discount (£) <span class="opt">optional</span></label>
+          <input id="discount" name="discount" type="number" step="0.01" min="0" placeholder="0.00">
+        </div>
+        <div class="field">
+          <label for="paid">Already paid / deposit (£) <span class="opt">optional</span></label>
+          <input id="paid" name="paid" type="number" step="0.01" min="0" placeholder="0.00">
+        </div>
+      </div>
+      <div class="totals" id="totals"></div>
+    </section>
+
+    <section class="card">
+      <h2>Payment &amp; notes</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label for="payment">Payment details</label>
+          <textarea id="payment" name="payment" rows="4" placeholder="Bank: Example Bank&#10;Account name: Acme Ltd&#10;Sort code: 00-00-00&#10;Account no: 12345678"></textarea>
+        </div>
+        <div class="field">
+          <label for="notes">Notes / terms</label>
+          <textarea id="notes" name="notes" rows="4" placeholder="Payment due within 14 days.&#10;Thank you for your business."></textarea>
+        </div>
+      </div>
+    </section>
+
+    <div class="actions">
+      <p class="error" id="error" hidden></p>
+      <button type="submit" id="submit">Create Invoice</button>
+    </div>
+  </form>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
