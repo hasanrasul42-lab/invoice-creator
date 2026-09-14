@@ -7,6 +7,13 @@ const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// A cost is either a number or the literal "TBC" (to be confirmed).
+function parseAmount(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (/^tbc$/i.test(s)) return { amount: 0, tbc: true };
+  return { amount: Number(s.replace(/[£,\s]/g, '')) || 0, tbc: false };
+}
+
 function safeFilename(s) {
   return String(s || 'invoice').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-+|-+$/g, '') || 'invoice';
 }
@@ -15,8 +22,8 @@ app.post('/api/invoice', (req, res) => {
   const b = req.body || {};
 
   const items = (Array.isArray(b.items) ? b.items : [])
-    .map((i) => ({ description: String(i.description || '').trim(), amount: Number(i.amount) || 0 }))
-    .filter((i) => i.description || i.amount);
+    .map((i) => ({ description: String(i.description || '').trim(), ...parseAmount(i.amount) }))
+    .filter((i) => i.description || i.amount || i.tbc);
 
   if (!items.length) {
     return res.status(400).json({ error: 'Add at least one service with a description or cost.' });

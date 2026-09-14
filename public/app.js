@@ -9,13 +9,26 @@ const errorEl = $('error');
 const gbp = (n) =>
   '£' + (Number(n) || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
+// A cost is either a number or the literal "TBC" (to be confirmed).
+function parseAmount(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (/^tbc$/i.test(s)) return { amount: 0, tbc: true };
+  return { amount: Number(s.replace(/[£,\s]/g, '')) || 0, tbc: false };
+}
+
+// "<amount> + TBC" once anything on the invoice is still to be confirmed.
+function withTbc(n, hasTbc) {
+  if (!hasTbc) return gbp(n);
+  return Math.abs(n) < 0.005 ? 'TBC' : gbp(n) + ' + TBC';
+}
+
 // ---------------------------------------------------------------- line items
 function addItem(description = '', amount = '') {
   const row = document.createElement('div');
   row.className = 'item-row';
   row.innerHTML = `
     <input class="desc" placeholder="e.g. Website design">
-    <input class="amount" type="number" step="0.01" min="0" placeholder="0.00">
+    <input class="amount" type="text" inputmode="decimal" placeholder="0.00 or TBC">
     <button type="button" class="remove" title="Remove">&times;</button>`;
   row.querySelector('.desc').value = description;
   row.querySelector('.amount').value = amount;
@@ -33,29 +46,31 @@ function readItems() {
   return [...itemsEl.querySelectorAll('.item-row')]
     .map((row) => ({
       description: row.querySelector('.desc').value.trim(),
-      amount: Number(row.querySelector('.amount').value) || 0,
+      ...parseAmount(row.querySelector('.amount').value),
     }))
-    .filter((i) => i.description || i.amount);
+    .filter((i) => i.description || i.amount || i.tbc);
 }
 
 // ------------------------------------------------------------------- totals
 function renderTotals() {
-  const subtotal = readItems().reduce((s, i) => s + i.amount, 0);
+  const items = readItems();
+  const subtotal = items.reduce((s, i) => s + i.amount, 0);
+  const hasTbc = items.some((i) => i.tbc);
   const discount = Number($('discount').value) || 0;
   const total = Math.max(subtotal - discount, 0);
   const paid = Number($('paid').value) || 0;
   const balance = total - paid;
 
-  const rows = [['Subtotal', gbp(subtotal)]];
+  const rows = [['Subtotal', withTbc(subtotal, hasTbc)]];
   if (discount) rows.push(['Discount', '-' + gbp(discount)]);
   if (paid) {
-    rows.push(['Total', gbp(total)]);
+    rows.push(['Total', withTbc(total, hasTbc)]);
     rows.push(['Paid', '-' + gbp(paid)]);
   }
 
   totalsEl.innerHTML =
     rows.map(([l, v]) => `<div class="row"><span>${l}</span><span>${v}</span></div>`).join('') +
-    `<div class="row grand"><span>${paid ? 'Balance due' : 'Total due'}</span><span>${gbp(balance)}</span></div>`;
+    `<div class="row grand"><span>${paid ? 'Balance due' : 'Total due'}</span><span>${withTbc(balance, hasTbc)}</span></div>`;
 }
 
 // ------------------------------------------------------------------ profile
@@ -133,7 +148,7 @@ $('invoice-form').addEventListener('submit', async (e) => {
     fromAddress: $('fromAddress').value,
     toName: $('toName').value.trim(),
     toAddress: $('toAddress').value,
-    items,
+    items: items.map((i) => ({ description: i.description, amount: i.tbc ? 'TBC' : i.amount })),
     discount: Number($('discount').value) || 0,
     paid: Number($('paid').value) || 0,
     payment: $('payment').value,

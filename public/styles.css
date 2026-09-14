@@ -92,7 +92,7 @@ input:focus, textarea:focus {
   margin-bottom: 10px;
   align-items: center;
 }
-.item-row input[type="number"] { text-align: right; }
+.item-row .amount { text-align: right; }
 
 .remove {
   border: 1px solid var(--rule);

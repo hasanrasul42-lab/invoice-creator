@@ -14,6 +14,15 @@ function money(n) {
   return '£' + v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
+/**
+ * A total that has an unpriced (TBC) item in it reads as "£X + TBC" - or just
+ * "TBC" when nothing in it is priced yet.
+ */
+function withTbc(n, hasTbc) {
+  if (!hasTbc) return money(n);
+  return Math.abs(n) < 0.005 ? 'TBC' : money(n) + ' + TBC';
+}
+
 function lines(text) {
   return String(text || '')
     .split(/\r?\n/)
@@ -108,23 +117,24 @@ function buildInvoice(data, stream) {
 
     doc.text(item.description, left + 12, y + 9, { width: descW });
     doc.font('Helvetica').fontSize(10).fillColor(INK)
-      .text(money(item.amount), left + 12 + descW, y + 9, { width: amountW - 12, align: 'right' });
+      .text(item.tbc ? 'TBC' : money(item.amount), left + 12 + descW, y + 9, { width: amountW - 12, align: 'right' });
 
     y += h;
     doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).strokeColor(RULE).stroke();
   }
 
   // ---------------------------------------------------------------- totals
-  const subtotal = data.items.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+  const subtotal = data.items.reduce((sum, i) => sum + (i.tbc ? 0 : Number(i.amount) || 0), 0);
+  const hasTbc = data.items.some((i) => i.tbc);
   const discount = Number(data.discount) || 0;
   const total = Math.max(subtotal - discount, 0);
   const paid = Number(data.paid) || 0;
   const balance = total - paid;
 
-  const totalRows = [['Subtotal', money(subtotal)]];
+  const totalRows = [['Subtotal', withTbc(subtotal, hasTbc)]];
   if (discount) totalRows.push(['Discount', '-' + money(discount)]);
   if (paid) {
-    totalRows.push(['Total', money(total)]);
+    totalRows.push(['Total', withTbc(total, hasTbc)]);
     totalRows.push(['Paid', '-' + money(paid)]);
   }
 
@@ -149,8 +159,15 @@ function buildInvoice(data, stream) {
   doc.rect(boxX, y, boxW, 38).fill(BAND);
   doc.font('Helvetica-Bold').fontSize(10).fillColor(BODY)
     .text(paid ? 'BALANCE DUE' : 'TOTAL DUE', boxX + 14, y + 14, { width: 110, characterSpacing: 0.6 });
-  doc.font('Helvetica-Bold').fontSize(15).fillColor(INK)
-    .text(money(balance), boxX + 110, y + 10, { width: boxW - 124, align: 'right' });
+  const balanceLabel = withTbc(balance, hasTbc);
+  const balanceW = boxW - 124;
+  let balanceSize = 15;
+  doc.font('Helvetica-Bold');
+  while (balanceSize > 9 && doc.fontSize(balanceSize).widthOfString(balanceLabel) > balanceW) {
+    balanceSize -= 0.5;
+  }
+  doc.fontSize(balanceSize).fillColor(INK)
+    .text(balanceLabel, boxX + 110, y + 10 + (15 - balanceSize) / 2, { width: balanceW, align: 'right' });
 
   y += 38 + 40;
 
