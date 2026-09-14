@@ -154,7 +154,7 @@ $('invoice-form').addEventListener('submit', async (e) => {
       });
     } catch (_) {
       // fetch only throws like this when the server isn't reachable
-      throw new Error("Can't reach the server - is it still running? Start it with: npm start");
+      throw new Error('Could not reach the server. Check your connection and try again.');
     }
 
     if (!res.ok) {
