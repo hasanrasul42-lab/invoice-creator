@@ -22,6 +22,85 @@ function withTbc(n, hasTbc) {
   return Math.abs(n) < 0.005 ? 'TBC' : gbp(n) + ' + TBC';
 }
 
+// ------------------------------------------------------------- save location
+// Chrome/Edge can write straight into a folder you pick, so invoices land in
+// e.g. Documents\invoices\Sent instead of Downloads. The folder handle is kept
+// in IndexedDB (it is an object, so localStorage cannot hold it). Other
+// browsers fall back to a normal download.
+const CAN_PICK_FOLDER = typeof window.showDirectoryPicker === 'function';
+let saveDir = null;
+
+function handleStore(mode, run) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('invoice-creator', 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('handles');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const req = run(open.result.transaction('handles', mode).objectStore('handles'));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    };
+  });
+}
+
+const rememberDir = (h) => handleStore('readwrite', (s) => s.put(h, 'saveDir'));
+const recallDir = () => handleStore('readonly', (s) => s.get('saveDir'));
+const forgetDir = () => handleStore('readwrite', (s) => s.delete('saveDir'));
+
+// Must be called while the user's click is still "fresh", or Chrome refuses.
+async function allowedToWrite(dir) {
+  const opts = { mode: 'readwrite' };
+  if ((await dir.queryPermission(opts)) === 'granted') return true;
+  return (await dir.requestPermission(opts)) === 'granted';
+}
+
+async function nameIsFree(dir, name) {
+  try {
+    await dir.getFileHandle(name);
+    return false;
+  } catch (_) {
+    return true;
+  }
+}
+
+// Never overwrite an invoice already in the folder - add " (2)", " (3)"...
+async function freeName(dir, base) {
+  let name = `${base}.pdf`;
+  for (let n = 2; !(await nameIsFree(dir, name)); n++) name = `${base} (${n}).pdf`;
+  return name;
+}
+
+async function writeToFolder(dir, base, blob) {
+  const name = await freeName(dir, base);
+  const file = await dir.getFileHandle(name, { create: true });
+  const stream = await file.createWritable();
+  await stream.write(blob);
+  await stream.close();
+  return name;
+}
+
+function renderSavebar() {
+  const bar = $('savebar');
+  const label = $('save-folder');
+  const clear = $('clear-folder');
+
+  if (!CAN_PICK_FOLDER) {
+    bar.hidden = false;
+    $('pick-folder').hidden = true;
+    label.textContent = 'Downloads';
+    label.insertAdjacentHTML(
+      'afterend',
+      '<span class="note">This browser cannot save to a chosen folder. Chrome or Edge can.</span>'
+    );
+    return;
+  }
+
+  bar.hidden = false;
+  label.textContent = saveDir ? saveDir.name : 'Downloads';
+  clear.hidden = !saveDir;
+  $('pick-folder').textContent = saveDir ? 'Change folder' : 'Choose folder';
+}
+
 // ---------------------------------------------------------------- line items
 function addItem(description = '', amount = '') {
   const row = document.createElement('div');
@@ -126,19 +205,67 @@ addItem();
 renderTotals();
 
 $('add-item').addEventListener('click', () => addItem());
+
+if (CAN_PICK_FOLDER) {
+  recallDir().then((dir) => { saveDir = dir || null; renderSavebar(); }).catch(() => renderSavebar());
+
+  $('pick-folder').addEventListener('click', async () => {
+    try {
+      const dir = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'documents' });
+      saveDir = dir;
+      await rememberDir(dir);
+      renderSavebar();
+      showOk('Invoices will be saved into "' + dir.name + '".');
+    } catch (_) { /* picker dismissed */ }
+  });
+
+  $('clear-folder').addEventListener('click', async () => {
+    saveDir = null;
+    await forgetDir().catch(() => {});
+    renderSavebar();
+  });
+} else {
+  renderSavebar();
+}
 $('discount').addEventListener('input', renderTotals);
 $('paid').addEventListener('input', renderTotals);
+
+// ----------------------------------------------------------------- messages
+function showOk(text) {
+  $('ok').textContent = text;
+  $('ok').hidden = false;
+  $('error').hidden = true;
+}
+
+function showError(text) {
+  $('error').textContent = text;
+  $('error').hidden = false;
+  $('ok').hidden = true;
+}
 
 // ------------------------------------------------------------------- submit
 $('invoice-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   errorEl.hidden = true;
+  $('ok').hidden = true;
 
   const items = readItems();
   if (!items.length) {
-    errorEl.textContent = 'Add at least one service before creating the invoice.';
-    errorEl.hidden = false;
+    showError('Add at least one service before creating the invoice.');
     return;
+  }
+
+  // Ask while the click is still fresh - Chrome rejects the prompt later on.
+  let writeTo = null;
+  if (saveDir) {
+    try {
+      writeTo = (await allowedToWrite(saveDir)) ? saveDir : null;
+    } catch (_) {
+      writeTo = null;
+    }
+    if (!writeTo) {
+      showError('No permission to write to "' + saveDir.name + '" - downloading instead.');
+    }
   }
 
   const payload = {
@@ -178,19 +305,26 @@ $('invoice-form').addEventListener('submit', async (e) => {
     }
 
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = (payload.number ? 'invoice-' + payload.number : 'invoice') + '.pdf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const base = payload.number ? 'invoice-' + payload.number : 'invoice';
+
+    if (writeTo) {
+      const name = await writeToFolder(writeTo, base, blob);
+      showOk('Saved ' + name + ' to "' + writeTo.name + '".');
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = base + '.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
 
     saveProfile();
+    $('number').value = nextNumber($('number').value);
   } catch (err) {
-    errorEl.textContent = err.message;
-    errorEl.hidden = false;
+    showError(err.message);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Create Invoice';

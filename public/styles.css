@@ -131,8 +131,27 @@ input:focus, textarea:focus {
 }
 .totals .row.grand span:first-child { color: var(--ink); }
 
+.savebar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 14px 20px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.savebar > div { flex: 1; min-width: 0; }
+.savebar-label { color: var(--muted); margin-right: 6px; }
+.savebar strong { color: var(--ink); overflow-wrap: anywhere; }
+.savebar .note { display: block; color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+
 .actions { display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; }
-.error { color: var(--danger); font-size: 14px; margin: 0; }
+.msg { font-size: 14px; margin: 0; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.error { color: var(--danger); }
+.ok { color: #15803d; }
 
 #submit {
   background: var(--accent);

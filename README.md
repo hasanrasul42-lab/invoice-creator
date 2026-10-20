@@ -27,6 +27,20 @@ Then open http://localhost:3000
 - Optional discount and "already paid / deposit" amounts, which produce a balance due.
 - Long invoices flow onto extra pages with the table header repeated.
 
+## Where the PDFs go
+
+By default an invoice downloads like any other file. Click **Choose folder** at
+the bottom of the form and pick e.g. `DocumentsinvoicesSent`, and invoices
+are written straight into that folder instead - no download, no save dialog.
+
+The folder is remembered between visits (the handle lives in IndexedDB). Chrome
+asks once per session to confirm write access; other browsers fall back to a
+download. Nothing is ever overwritten: a second `invoice-INV-001` is filed as
+`invoice-INV-001 (2).pdf`.
+
+This runs in the browser, not on the server - a hosted site cannot reach your
+disk on its own, so the folder has to be granted by you through the picker.
+
 ## Deploying
 
 The Vercel project is linked to this repo, so pushing to `main` deploys.

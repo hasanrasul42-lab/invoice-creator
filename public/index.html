@@ -98,8 +98,18 @@
       </div>
     </section>
 
+    <div class="savebar" id="savebar" hidden>
+      <div>
+        <span class="savebar-label">Save invoices to</span>
+        <strong id="save-folder">Downloads</strong>
+      </div>
+      <button type="button" class="ghost" id="pick-folder">Choose folder</button>
+      <button type="button" class="ghost" id="clear-folder" hidden>Use Downloads</button>
+    </div>
+
     <div class="actions">
-      <p class="error" id="error" hidden></p>
+      <p class="msg error" id="error" hidden></p>
+      <p class="msg ok" id="ok" hidden></p>
       <button type="submit" id="submit">Create Invoice</button>
     </div>
   </form>
